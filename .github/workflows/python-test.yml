@@ -28,6 +28,21 @@ jobs:
         python -m pip install --upgrade pip
         pip install pylint httpx
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: CURL Test pricing
+      env:
+        PYRK_API_KEY: ${{ secrets.PYRK_API_KEY }}
+        PYRK_API_SECRET_KEY: ${{ secrets.PYRK_API_SECRET_KEY }}
+        PYRK_TEST_DOMAIN_NAME: ${{ secrets.PYRK_TEST_DOMAIN_NAME }}
+      run: |
+        curl --location --request POST 'https://porkbun.com/api/json/v3/pricing/get'
+    - name: CURL Test ping
+      env:
+        PYRK_API_KEY: ${{ secrets.PYRK_API_KEY }}
+        PYRK_API_SECRET_KEY: ${{ secrets.PYRK_API_SECRET_KEY }}
+        PYRK_TEST_DOMAIN_NAME: ${{ secrets.PYRK_TEST_DOMAIN_NAME }}
+      run: |
+        curl --location --request POST 'https://porkbun.com/api/json/v3/ping' \
+        --header 'Content-Type: application/json' \ --data-raw '{"secretapikey": $PYRK_API_SECRET_KEY:, "apikey": $PYRK_API_KEY}
     - name: Test unittest
       env:
         PYRK_API_KEY: ${{ secrets.PYRK_API_KEY }}
