@@ -34,8 +34,9 @@ class ApiPingIntegrationTests(unittest.TestCase):
         """
         try:
             ping: dict = pyrkbun.ping()
+            print(ping)
+            self.assertEqual(ping, 'ping')
         except ValueError as error:
-            print(error.message)
             print(error)
             self.assertEqual(error, 'error')
         #self.assertIsInstance(ping, dict)
