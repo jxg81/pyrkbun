@@ -19,11 +19,11 @@ from pyrkbun import ApiError
 # Set applicable environment variables to control test suite execution
 TEST_DOMAIN_NAME: str = getenv('PYRK_TEST_DOMAIN_NAME')
 TEST_SSL: str = getenv('PYRK_TEST_SSL')
+TEST_DNS_TLSA: str = getenv('PYRK_TEST_DNS_TLSA')
 TEST_DNS_RETRIEVE: str = getenv('PYRK_TEST_DNS_RETRIEVE')
 TEST_DNS_CREATE: str = getenv('PYRK_TEST_DNS_CREATE')
 TEST_DNS_DELETE: str = getenv('PYRK_TEST_DNS_DELETE')
 TEST_DNS_MODIFY: str = getenv('PYRK_TEST_DNS_MODIFY')
-TEST_DNS_TLSA: str = getenv('PYRK_TEST_DNS_TLSA')
 
 class ApiPingIntegrationTests(unittest.TestCase):
     """Test API ping operation
