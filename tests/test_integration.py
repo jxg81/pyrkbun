@@ -43,7 +43,7 @@ class ApiPingIntegrationTests(unittest.TestCase):
         #self.assertTrue(len(ping['yourIp']) >= 7)
 
     # Need to patch the base url to force use of v4 host
-    @unittest.SkipTest()
+    @unittest.skip('disable for testing unittest in actions')
     @patch('pyrkbun.util.BASE_URL', 'https://api-ipv4.porkbun.com/api/json/v3')
     def test_api_ping_v4_only_implicit(self):
         """Test API ping using the v4 only API host inherited from environ
@@ -54,7 +54,7 @@ class ApiPingIntegrationTests(unittest.TestCase):
         self.assertEqual(ping['status'], 'SUCCESS')
         self.assertEqual(len(ip_add.split('.')), 4)
 
-    @unittest.SkipTest()
+    @unittest.skip('disable for testing unittest in actions')
     def test_api_ping_v4_only_explicit(self):
         """Test API ping using the v4 only API via explicit setting
         """
