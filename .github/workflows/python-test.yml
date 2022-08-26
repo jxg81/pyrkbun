@@ -41,6 +41,7 @@ jobs:
         PYRK_API_SECRET_KEY: ${{ secrets.PYRK_API_SECRET_KEY }}
         PYRK_TEST_DOMAIN_NAME: ${{ secrets.PYRK_TEST_DOMAIN_NAME }}
       run: |
+        echo $PYRK_TEST_DOMAIN_NAME
         curl --location --request POST 'https://porkbun.com/api/json/v3/ping' \
         --header 'Content-Type: application/json' \ 
         --data-raw '{"secretapikey":\"$PYRK_API_SECRET_KEY\", "apikey":\"$PYRK_API_KEY\"}'
