@@ -43,7 +43,7 @@ jobs:
       run: |
         curl --location --request POST 'https://porkbun.com/api/json/v3/ping' \
         --header 'Content-Type: application/json' \ 
-        --data-raw '{"secretapikey": "'"$PYRK_API_SECRET_KEY"'", "apikey": "'"$PYRK_API_KEY"'"}'
+        --data-raw '{"secretapikey":\"$PYRK_API_SECRET_KEY\", "apikey":\"$PYRK_API_KEY\"}'
     - name: Test unittest
       env:
         PYRK_API_KEY: ${{ secrets.PYRK_API_KEY }}
