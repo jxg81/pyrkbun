@@ -1,6 +1,7 @@
 """Utilities
 """
 import httpx
+import json
 
 from .const import ApiError
 from .const import API_KEY, API_SECRET_KEY, BASE_URL, BASE_URL_V4, VALID_HTTP_RESPONSE
@@ -31,10 +32,7 @@ def api_post(path: str, payload: dict = None, auth: bool = True, force_v4: bool 
     http_client = httpx.Client(http2=True, base_url=base_url, headers=headers)
     with http_client as http_client:
         response = http_client.post(path, json=payload)
-        return([response.request.url, response.request.method, response.request.content, 
-                response.request.headers, response.content, response.text, response.headers, response.json()])
-        return(response.content)
-    result: dict = response.json()
+    result: dict = json.loads(response.text)
     # Remove api auth data added to keys to prevent accidental exposure and allow
     # reuse of dicts provided to create and update functions
     payload.pop('apikey', None)
