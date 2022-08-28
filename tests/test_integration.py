@@ -36,7 +36,7 @@ class ApiPingIntegrationTests(unittest.TestCase):
         """
         ping: dict = pyrkbun.ping()
         print(ping)
-        time.sleep(3)
+        time.sleep(1)
         self.assertIsInstance(ping, dict)
         self.assertEqual(ping['status'], 'SUCCESS')
         self.assertTrue(len(ping['yourIp']) >= 7)
@@ -49,7 +49,7 @@ class ApiPingIntegrationTests(unittest.TestCase):
         """
         ping: dict = pyrkbun.ping()
         ip_add: str = ping['yourIp']
-        time.sleep(3)
+        time.sleep(1)
         self.assertIsInstance(ping, dict)
         self.assertEqual(ping['status'], 'SUCCESS')
         self.assertEqual(len(ip_add.split('.')), 4)
@@ -60,13 +60,13 @@ class ApiPingIntegrationTests(unittest.TestCase):
         """
         ping: dict = pyrkbun.ping(ipv4=True)
         ip_add: str = ping['yourIp']
-        time.sleep(3)
+        time.sleep(1)
         self.assertIsInstance(ping, dict)
         self.assertEqual(ping['status'], 'SUCCESS')
         self.assertEqual(len(ip_add.split('.')), 4)
 
 
-@unittest.skip('disable for testing unittest in actions')
+#@unittest.skip('disable for testing unittest in actions')
 class PricingIntegrationTests(unittest.TestCase):
     """Test pricing API
     """
@@ -75,6 +75,7 @@ class PricingIntegrationTests(unittest.TestCase):
         """
         pricing: dict = pyrkbun.pricing.get()
         price_data: dict = pricing['pricing']
+        time.sleep(1)
         self.assertIsInstance(pricing, dict)
         self.assertEqual(pricing['status'], 'SUCCESS')
         self.assertIn('com', price_data.keys())
