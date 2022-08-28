@@ -64,6 +64,7 @@ class ApiPingIntegrationTests(unittest.TestCase):
         self.assertEqual(len(ip_add.split('.')), 4)
 
 
+@unittest.skip('disable for testing unittest in actions')
 class PricingIntegrationTests(unittest.TestCase):
     """Test pricing API
     """
