@@ -1,7 +1,6 @@
 """Utilities
 """
 import httpx
-import json
 
 from .const import ApiError, ApiFailure
 from .const import API_KEY, API_SECRET_KEY, BASE_URL, BASE_URL_V4, VALID_HTTP_RESPONSE
@@ -38,6 +37,8 @@ def api_post(path: str, payload: dict = None, auth: bool = True, force_v4: bool 
     try:
         result: dict = response.json()
     except ValueError as error:
+        print(response.status_code)
+        print(response.content)
         raise ApiFailure(response.status_code, response.content) from error
 
     # Remove api auth data added to keys to prevent accidental exposure and allow
