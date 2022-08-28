@@ -3,10 +3,10 @@ WARNING: THESE TESTS WILL WRITE, READ, DELETE AND MODIFY DNS RECORDS
 ONLY RUN THESE TESTS AGAINST A DOMAIN THAT IS PREPARED FOR THESE CHANGES
 """
 import unittest
+import time
 from unittest.mock import patch
 from os import getenv
 
-from pyrkbun.const import ApiFailure
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -36,6 +36,7 @@ class ApiPingIntegrationTests(unittest.TestCase):
         """
         ping: dict = pyrkbun.ping()
         print(ping)
+        time.sleep(3)
         self.assertIsInstance(ping, dict)
         self.assertEqual(ping['status'], 'SUCCESS')
         self.assertTrue(len(ping['yourIp']) >= 7)
@@ -48,6 +49,7 @@ class ApiPingIntegrationTests(unittest.TestCase):
         """
         ping: dict = pyrkbun.ping()
         ip_add: str = ping['yourIp']
+        time.sleep(3)
         self.assertIsInstance(ping, dict)
         self.assertEqual(ping['status'], 'SUCCESS')
         self.assertEqual(len(ip_add.split('.')), 4)
@@ -58,6 +60,7 @@ class ApiPingIntegrationTests(unittest.TestCase):
         """
         ping: dict = pyrkbun.ping(ipv4=True)
         ip_add: str = ping['yourIp']
+        time.sleep(3)
         self.assertIsInstance(ping, dict)
         self.assertEqual(ping['status'], 'SUCCESS')
         self.assertEqual(len(ip_add.split('.')), 4)
