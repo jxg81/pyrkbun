@@ -5,6 +5,8 @@ ONLY RUN THESE TESTS AGAINST A DOMAIN THAT IS PREPARED FOR THESE CHANGES
 import unittest
 from unittest.mock import patch
 from os import getenv
+
+from pyrkbun.const import ApiFailure
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -32,8 +34,9 @@ class ApiPingIntegrationTests(unittest.TestCase):
     def test_api_ping_v4_v6(self):
         """Test API ping using the v4/v6 API host
         """
-        ping: dict = pyrkbun.ping()
-        print(ping)
+        with self.assertRaises(ApiFailure):
+            ping: dict = pyrkbun.ping()
+            print(ping)
         self.assertIsInstance(ping, dict)
         self.assertEqual(ping['status'], 'SUCCESS')
         self.assertTrue(len(ping['yourIp']) >= 7)

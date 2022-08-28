@@ -57,3 +57,20 @@ class ApiError(Exception):
 
     def __repr__(self) -> str:
         return f'ApiError({self.http_status}, {self.status}, {self.message})'
+
+
+class ApiFailure(Exception):
+    """Porkbun REST API Failure - non-json return
+
+    Attributes:
+        http_status: HTTP status code returned from API
+        message: Content returned from server
+    """
+
+    def __init__(self, http_status, message):
+        super().__init__()
+        self.http_status: int = http_status
+        self.message: str = message
+
+    def __repr__(self) -> str:
+        return f'ApiError({self.http_status}, {self.message})'

@@ -3,7 +3,7 @@
 import httpx
 import json
 
-from .const import ApiError
+from .const import ApiError, ApiFailure
 from .const import API_KEY, API_SECRET_KEY, BASE_URL, BASE_URL_V4, VALID_HTTP_RESPONSE
 
 def api_post(path: str, payload: dict = None, auth: bool = True, force_v4: bool = False) -> dict:
@@ -23,6 +23,8 @@ def api_post(path: str, payload: dict = None, auth: bool = True, force_v4: bool 
     Rasies:
     ApiError(): If the API returns a non-200 status code an error will be
         raised encapsulating the error message and http status-code
+    ApiFailure(): If JSON decoding of the returned data fails this error
+        will be raised encapsulating the content returned
     """
     payload = {} if payload is None else payload
     base_url = BASE_URL_V4 if force_v4 else BASE_URL
@@ -30,12 +32,14 @@ def api_post(path: str, payload: dict = None, auth: bool = True, force_v4: bool 
         payload.update({'secretapikey': API_SECRET_KEY,'apikey': API_KEY})
     headers = {'content-type': 'application/json'}
     http_client = httpx.Client(http2=True, base_url=base_url, headers=headers)
-    with http_client as http_client:
-        response = http_client.post(path, json=payload)
+    with http_client as client:
+        response = client.post(path, json=payload)
+
     try:
-        result: dict = json.loads(response.text)
-    except Exception:
-        return response.text
+        result: dict = response.json()
+    except ValueError as error:
+        raise ApiFailure(response.status_code, response.content) from error
+
     # Remove api auth data added to keys to prevent accidental exposure and allow
     # reuse of dicts provided to create and update functions
     payload.pop('apikey', None)
