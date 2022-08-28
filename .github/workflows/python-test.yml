@@ -33,5 +33,9 @@ jobs:
         PYRK_API_SECRET_KEY: ${{ secrets.PYRK_API_SECRET_KEY }}
         PYRK_TEST_DOMAIN_NAME: ${{ secrets.PYRK_TEST_DOMAIN_NAME }}
         PYRK_TEST_DNS_RETRIEVE: 'True'
+        PYRK_TEST_SSL: 'True'
+        PYRK_TEST_DNS_CREATE: 'True'
+        PYRK_TEST_DNS_DELETE: 'True'
+        PYRK_TEST_DNS_MODIFY: 'True'
       run: |
         python3 -m unittest discover ./tests "test_*.py" -v

@@ -22,7 +22,7 @@ except ModuleNotFoundError:
 API_KEY: str = getenv('PYRK_API_KEY')
 API_SECRET_KEY: str = getenv('PYRK_API_SECRET_KEY')
 FORCE_V4: str = getenv('PYRK_FORCE_V4')
-
+RATE_LIMIT: float = float(getenv('PYRK_RATE')) if getenv('PYRK_RATE') else 0
 VALID_HTTP_RESPONSE: set = {200}
 
 BASE_URL_V64: str = 'https://porkbun.com/api/json/v3'
