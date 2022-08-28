@@ -37,9 +37,9 @@ class ApiPingIntegrationTests(unittest.TestCase):
         with self.assertRaises(ApiFailure):
             ping: dict = pyrkbun.ping()
             print(ping)
-        self.assertIsInstance(ping, dict)
-        self.assertEqual(ping['status'], 'SUCCESS')
-        self.assertTrue(len(ping['yourIp']) >= 7)
+        #self.assertIsInstance(ping, dict)
+        #self.assertEqual(ping['status'], 'SUCCESS')
+        #self.assertTrue(len(ping['yourIp']) >= 7)
 
     # Need to patch the base url to force use of v4 host
     @unittest.skip('disable for testing unittest in actions')
