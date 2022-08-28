@@ -30,46 +30,48 @@ TEST_DNS_MODIFY: str = getenv('PYRK_TEST_DNS_MODIFY')
 class ApiPingIntegrationTests(unittest.TestCase):
     """Test API ping operation
     """
+    # Adding a pause between test runs as Github actions appeared to be
+    # sending requests too quickly for the API endpoint resulting in
+    # 503 errors on tet runs
+    def setUp(self):
+        time.sleep(1)
 
     def test_api_ping_v4_v6(self):
         """Test API ping using the v4/v6 API host
         """
         ping: dict = pyrkbun.ping()
-        print(ping)
-        time.sleep(1)
         self.assertIsInstance(ping, dict)
         self.assertEqual(ping['status'], 'SUCCESS')
         self.assertTrue(len(ping['yourIp']) >= 7)
 
     # Need to patch the base url to force use of v4 host
-    #@unittest.skip('disable for testing unittest in actions')
     @patch('pyrkbun.util.BASE_URL', 'https://api-ipv4.porkbun.com/api/json/v3')
     def test_api_ping_v4_only_implicit(self):
         """Test API ping using the v4 only API host inherited from environ
         """
         ping: dict = pyrkbun.ping()
         ip_add: str = ping['yourIp']
-        time.sleep(1)
         self.assertIsInstance(ping, dict)
         self.assertEqual(ping['status'], 'SUCCESS')
         self.assertEqual(len(ip_add.split('.')), 4)
 
-    #@unittest.skip('disable for testing unittest in actions')
     def test_api_ping_v4_only_explicit(self):
         """Test API ping using the v4 only API via explicit setting
         """
         ping: dict = pyrkbun.ping(ipv4=True)
         ip_add: str = ping['yourIp']
-        time.sleep(1)
         self.assertIsInstance(ping, dict)
         self.assertEqual(ping['status'], 'SUCCESS')
         self.assertEqual(len(ip_add.split('.')), 4)
 
 
-#@unittest.skip('disable for testing unittest in actions')
 class PricingIntegrationTests(unittest.TestCase):
     """Test pricing API
     """
+    # Add a delay between tests to prevent failures in Github Actions
+    def setUp(self):
+        time.sleep(1)
+
     def test_pricing_get(self):
         """Validate data returned from pricing API
         """
@@ -88,7 +90,11 @@ class SslIntegrationTests(unittest.TestCase):
     """Test SSL API
     WARNING: This test suite will retirieve private certificate data for your domain
     If the SSL cert is not available for this domian the test will be auto skipped
-    """
+    """    
+    # Add a delay between tests to prevent failures in Github Actions
+    def setUp(self):
+        time.sleep(1)
+
     def test_ssl_get(self):
         """Validate data returned from pricing API
         """
@@ -116,6 +122,9 @@ class DnsRetrievalIntegrationTests(unittest.TestCase):
     WARNING: This test suite WILL MODIFY your DOMAIN RECORDS
     All records created SHOULD be automatically REMOVED on test completion
     """
+    # Add a delay between tests to prevent failures in Github Actions
+    def setUp(self):
+        time.sleep(1)
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -148,6 +157,8 @@ class DnsRetrievalIntegrationTests(unittest.TestCase):
         cls.test_records = []
         for record in test_records:
             create = pyrkbun.dns.create_record(TEST_DOMAIN_NAME, record)
+            # Add a delay between requests to prevent failures in Github Actions
+            time.sleep(1)
             test_data = {'id': str(create['id']), 'name': record['name'], 'type': record['type']}
             cls.test_records.append(test_data)
 
@@ -231,6 +242,9 @@ class DnsCreateIntegrationTests(unittest.TestCase):
     issuance by a CA provider named pyrkbuntest.{TEST_DOMAIN_NAME}
     All records created SHOULD be automatically REMOVED on test completion
     """
+    # Add a delay between tests to prevent failures in Github Actions
+    def setUp(self):
+        time.sleep(1)
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -313,6 +327,8 @@ class DnsCreateIntegrationTests(unittest.TestCase):
         """Clean-up test records created during testing
         """
         for record_id in cls.created_record_ids:
+            # Add a delay between requests to prevent failures in Github Actions
+            time.sleep(1)
             pyrkbun.dns.delete_record(TEST_DOMAIN_NAME, record_id=record_id)
 
     def test_create_a_record(self):
@@ -460,6 +476,9 @@ class DnsDeleteIntegrationTests(unittest.TestCase):
     WARNING: This test suite WILL MODIFY your DOMAIN RECORDS
     All records created SHOULD be automatically REMOVED on test completion
     """
+    # Add a delay between tests to prevent failures in Github Actions
+    def setUp(self):
+        time.sleep(1)
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -485,6 +504,8 @@ class DnsDeleteIntegrationTests(unittest.TestCase):
                          'notes': 'pyrkbun test MX record'}]
         cls.test_records = []
         for record in test_records:
+            # Add a delay between tests to prevent failures in Github Actions
+            time.sleep(1)
             create = pyrkbun.dns.create_record(TEST_DOMAIN_NAME, record)
             test_data = {'id': str(create['id']), 'name': record['name'], 'type': record['type']}
             cls.test_records.append(test_data)
@@ -496,6 +517,8 @@ class DnsDeleteIntegrationTests(unittest.TestCase):
         for record in cls.test_records:
             try:
                 pyrkbun.dns.delete_record(TEST_DOMAIN_NAME, record_id=record['id'])
+                # Add a delay between requests to prevent failures in Github Actions
+                time.sleep(1)
             except ApiError as error:
                 if error.message == "Invalid record ID.":
                     pass
@@ -505,6 +528,8 @@ class DnsDeleteIntegrationTests(unittest.TestCase):
         """
         record = [record for record in self.test_records if record['type'] == 'A'][0]
         result = pyrkbun.dns.delete_record(TEST_DOMAIN_NAME, record_id = record['id'])
+        # Add a delay between requests to prevent failures in Github Actions
+        time.sleep(1)
         check = pyrkbun.dns.get_records(TEST_DOMAIN_NAME, record_id = record['id'])
         self.assertEqual('SUCCESS', result['status'])
         self.assertListEqual(check, [])
@@ -514,6 +539,8 @@ class DnsDeleteIntegrationTests(unittest.TestCase):
         """
         record = [record for record in self.test_records if record['type'] == 'AAAA'][0]
         result = pyrkbun.dns.delete_record(TEST_DOMAIN_NAME, record['type'], record['name'])
+        # Add a delay between requests to prevent failures in Github Actions
+        time.sleep(1)
         check = pyrkbun.dns.get_records(TEST_DOMAIN_NAME, record_id = record['id'])
         self.assertEqual('SUCCESS', result['status'])
         self.assertListEqual(check, [])
@@ -524,6 +551,8 @@ class DnsDeleteIntegrationTests(unittest.TestCase):
         record = [record for record in self.test_records if record['type'] == 'MX'][0]
         retrieved_record = pyrkbun.dns.get_records(TEST_DOMAIN_NAME, record_id = record['id'])[0]
         result = retrieved_record.delete()
+        # Add a delay between requests to prevent failures in Github Actions
+        time.sleep(1)
         check = pyrkbun.dns.get_records(TEST_DOMAIN_NAME, record_id = record['id'])
         self.assertEqual('SUCCESS', result['status'])
         self.assertListEqual(check, [])
@@ -535,6 +564,9 @@ class DnsModifyIntegrationTests(unittest.TestCase):
     WARNING: This test suite WILL MODIFY your DOMAIN RECORDS
     All records created SHOULD be automatically REMOVED on test completion
     """
+    # Add a delay between tests to prevent failures in Github Actions
+    def setUp(self):
+        time.sleep(1)
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -561,6 +593,8 @@ class DnsModifyIntegrationTests(unittest.TestCase):
         cls.test_records = []
         for record in test_records:
             create = pyrkbun.dns.create_record(TEST_DOMAIN_NAME, record)
+            # Add a delay between requests to prevent failures in Github Actions
+            time.sleep(1)
             test_data = {'id': str(create['id']), 'name': record['name'], 'type': record['type']}
             cls.test_records.append(test_data)
 
@@ -571,6 +605,8 @@ class DnsModifyIntegrationTests(unittest.TestCase):
         for record in cls.test_records:
             try:
                 pyrkbun.dns.delete_record(TEST_DOMAIN_NAME, record_id=record['id'])
+                # Add a delay between requests to prevent failures in Github Actions
+                time.sleep(1)
             except ApiError as error:
                 if error.message == "Invalid record ID.":
                     pass
@@ -586,6 +622,8 @@ class DnsModifyIntegrationTests(unittest.TestCase):
                    'prio': '0',
                    'notes': 'pyrkbun test A record'}
         result = pyrkbun.dns.edit_record(TEST_DOMAIN_NAME, updates, record_id = record['id'])
+        # Add a delay between requests to prevent failures in Github Actions
+        time.sleep(1)
         check = pyrkbun.dns.get_records(TEST_DOMAIN_NAME, record_id = record['id'])[0]
         self.assertEqual('SUCCESS', result['status'])
         self.assertEqual('pyrkbuntestaedit', check.name)
@@ -603,6 +641,8 @@ class DnsModifyIntegrationTests(unittest.TestCase):
                    'prio': '0',
                    'notes': 'pyrkbun test A record'}
         result = pyrkbun.dns.edit_record(TEST_DOMAIN_NAME, updates, record['type'], record['name'])
+        # Add a delay between requests to prevent failures in Github Actions
+        time.sleep(1)
         check = pyrkbun.dns.get_records(TEST_DOMAIN_NAME, record_id = record['id'])[0]
         self.assertEqual('SUCCESS', result['status'])
         self.assertEqual('pyrkbuntestaaaa', check.name)
@@ -614,6 +654,8 @@ class DnsModifyIntegrationTests(unittest.TestCase):
         """
         record = [record for record in self.test_records if record['type'] == 'CNAME'][0]
         retrieved_record = pyrkbun.dns.get_records(TEST_DOMAIN_NAME, record_id = record['id'])[0]
+        # Add a delay between requests to prevent failures in Github Actions
+        time.sleep(1)
         retrieved_record.name = 'pyrkbuntestcnameedit'
         retrieved_record.content = f'pyrkbuntesta.{TEST_DOMAIN_NAME}'
         retrieved_record.ttl = '770'
