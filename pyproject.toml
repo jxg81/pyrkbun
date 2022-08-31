@@ -29,3 +29,6 @@ dev = ["python-dotenv", "setuptools"]
 
 [project.urls]
 Homepage = "https://github.com/jxg81/pyrkbun"
+
+[project.scripts]
+pyrkbun = "pyrkbun.cli:main"
