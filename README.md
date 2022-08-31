@@ -1,4 +1,4 @@
-# pyrkbun - Python library for the porkbun.com API
+# pyrkbun - Python library and CLI for the porkbun.com API
 
 [![pypi](https://img.shields.io/pypi/v/pyrkbun)](https://pypi.org/project/pyrkbun/)
 [![GitHub release](https://img.shields.io/github/release/jxg81/pyrkbun.svg)](https://github.com/jxg81/pyrkbun/releases)
