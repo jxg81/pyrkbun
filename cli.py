@@ -1,9 +1,11 @@
+"""CLI Interface to pyrkbun
+"""
 #! /usr/local/bin/python
-import pyrkbun
 import json
 import argparse
 
-from pyrkbun.const import ApiError
+import pyrkbun
+from pyrkbun.const import ApiError, ApiFailure
 
 SUPPORTED_DNS_RECORD_TYPES = {'A',
                               'AAAA',
@@ -16,36 +18,36 @@ SUPPORTED_DNS_RECORD_TYPES = {'A',
                               'TLSA',
                               'CAA'}
 
-def run_ping(args):
+def run_ping(args: argparse.Namespace) -> str:
     """Run Ping"""
-    result = pyrkbun.ping(args.v4)
-    return print(json.dumps(result))
+    result: dict = pyrkbun.ping(args.v4)
+    return json.dumps(result)
 
-def run_pricing(args):
+def run_pricing(args: argparse.Namespace) -> str: # pylint: disable = unused-argument
     """Run Picing"""
-    result = pyrkbun.pricing.get()
-    return print(json.dumps(result))
+    result: dict = pyrkbun.pricing.get()
+    return json.dumps(result)
 
-def run_ssl(args):
+def run_ssl(args: argparse.Namespace) -> str:
     """Run SSL"""
-    result = pyrkbun.ssl.get(args.domain)
-    return print(json.dumps(result))
+    result: dict = pyrkbun.ssl.get(args.domain)
+    return json.dumps(result)
 
-def run_dns(args):
+def run_dns(args: argparse.Namespace) -> str:
     """Run DNS"""
     try:
-        command = args.command
+        command: str = args.command
     except AttributeError:
-        return print('Please choose from get, create, edit, delete')
+        return 'Please choose from get, create, edit, delete, or restore'
 
-    domain = args.domain
-    record_id = args.id
-    record_type = args.type
-    name = args.name
-    content = args.content
-    ttl = args.ttl
-    priority = args.priority
-    notes = args.notes
+    domain: str = args.domain
+    record_id: str = args.id
+    record_type: str = args.type
+    name: str = args.name
+    content: str = args.content
+    ttl: str = args.ttl
+    priority: str = args.priority
+    notes: str = args.notes
 
     if command in ('create', 'edit'):
         record = {'name': name,
@@ -65,7 +67,11 @@ def run_dns(args):
 
             result = []
             for record in records:
-                result.append(record.__dict__)
+                modified_record = record.__dict__
+                modified_record['type'] = modified_record.pop('record_type')
+                modified_record['id'] = modified_record.pop('record_id')
+                modified_record.pop('domain', None)
+                result.append(modified_record)
 
         elif command == 'create':
             result = pyrkbun.dns.create_record(domain, record)
@@ -76,7 +82,7 @@ def run_dns(args):
             elif name and record_type:
                 result = pyrkbun.dns.edit_record(domain, record, record_type, name)
             else:
-                return print('Please set value for either id or name and type')
+                return 'Please set value for either id OR name and type'
 
         elif command == 'delete':
             if record_id:
@@ -84,13 +90,117 @@ def run_dns(args):
             elif name and record_type:
                 result = pyrkbun.dns.delete_record(domain, record_type, name)
             else:
-                return print('Please set value for either id or name and type')
-    
-    except ApiError as error:
-        return print(f'Error -> {error.message}')
-    
-    return print(json.dumps(result))
+                return 'Please set value for either id OR name and type'
 
+    except (ApiError, ApiFailure) as error:
+        return f'API Error -> {error.message}'
+
+    return json.dumps(result)
+
+def run_dns_bulk(args: argparse.Namespace): # pylint: disable = too-many-locals
+    """Run DNS Bulk
+    flush: Delete ALL existing records and load records from provided file
+    merge: Update existing records and add new records if they do not yet exist.
+        Records not specified in the file will remain unchanged. Existing records
+        must include the ID
+    add: Add all records in the provided file
+    """
+    domain: str = args.domain
+    input_file: str = args.input
+    output_file: str = args.output
+    mode: str = args.mode
+    created: dict = {'SUCCESS': [], 'FAILURE': []}
+    edited: dict = {'SUCCESS': [], 'FAILURE': []}
+    deleted: dict = {'SUCCESS': [], 'FAILURE': []}
+    not_found: list = []
+
+    def create_records(records: list):
+        for record in records:
+            record.pop('domain', None)
+            record.pop('id', None)
+            try:
+                result = pyrkbun.dns.create_record(domain, record)
+            except (ApiError, ApiFailure) as error:
+                created['FAILURE'].append({'error': error.message, 'record': record})
+                continue
+            record.update({'id': str(result['id'])})
+            created['SUCCESS'].append({'result': result, 'record': record})
+
+    def delete_records(records: list):
+        for record in records:
+            try:
+                result = pyrkbun.dns.delete_record(domain, record_id=record['id'])
+            except (ApiError, ApiFailure) as error:
+                deleted['FAILURE'].append({'result': error.message, 'record': record})
+                continue
+            deleted['SUCCESS'].append({'result': result, 'record': record})
+
+    def edit_records(records: list):
+        for record in records:
+            try:
+                result = pyrkbun.dns.edit_record(domain, record, record_id=record['id'])
+            except (ApiError, ApiFailure) as error:
+                edited['FAILURE'].append({'result': error.message, 'record': record})
+                continue
+            edited['SUCCESS'].append({'result': result, 'record': record})
+
+
+    with open(input_file, 'r', encoding='utf8') as file:
+        user_provided_records = json.load(file)
+
+    run_dns_args = argparse.Namespace(domain=domain,
+                                      command='get',
+                                      id='', name='',
+                                      type='',
+                                      content='',
+                                      ttl='',
+                                      priority='',
+                                      notes='')
+
+    existing_records: dict = json.loads(run_dns(run_dns_args))
+    print(existing_records)
+
+
+    if mode == 'flush':
+        delete_records(existing_records)
+        create_records(user_provided_records)
+
+    if mode == 'add':
+        create_records(user_provided_records)
+
+    if mode == 'merge': # pylint: disable = too-many-nested-blocks
+        to_edit = []
+        to_create = []
+        for user_record in user_provided_records:
+            # If the id key is present then it should be cheked for editing
+            # if not, it should be created (fall through to first else)
+            if user_record.get('id') is not None:
+                # If the id key is present, but has no value, then assume
+                # it should be created as well (fall through to nested else)
+                if len(user_record['id']) != 0:
+                    for exist_record in existing_records:
+                        # If the Id values match between an existing and
+                        # and user provided record then we need to edit it
+                        if exist_record['id'] == user_record['id']:
+                            to_edit.append(user_record)
+                else:
+                    to_create.append(user_record)
+            else:
+                to_create.append(user_record)
+        # If after the above comparison if the record does not appear in
+        # to_create or to_edit, then the ID must have been provided and
+        # it must be incorrect
+        for user_record in user_provided_records:
+            if user_record not in to_create and user_record not in to_create:
+                not_found.append(user_record)
+        # create and edit records as required
+        create_records(to_create)
+        edit_records(to_edit)
+
+    result = {'CREATED': created, 'EDITED': edited, 'DELETED': deleted, 'NOT_FOUND': not_found}
+
+    with open(output_file, 'a+', encoding='utf8') as file:
+        json.dump(result, file)
 
 def main():
     """"Operate pyrkbun from the command line"""
@@ -120,37 +230,77 @@ def main():
     dns_subparser = dns.add_subparsers()
 
     get = dns_subparser.add_parser('get', help='Get a DNS record')
-    get.set_defaults(command='get', id='', name='', type='', content='', ttl='', priority='', notes='')
+    get.set_defaults(command='get',
+                     id='',
+                     name='',
+                     type='',
+                     content='',
+                     ttl='',
+                     priority='',
+                     notes='')
     get.add_argument('-id', help='Porkbun unique record ID')
     get.add_argument('-name', help='DNS record name', type=str)
-    get.add_argument('-type', help='DNS record type', type=str, choices=SUPPORTED_DNS_RECORD_TYPES)
+    get.add_argument('-type', help='DNS record type',
+                     type=str, choices=SUPPORTED_DNS_RECORD_TYPES)
 
     create = dns_subparser.add_parser('create', help='Create a DNS record')
-    create.set_defaults(command='create', id='', name='', type='', content='', ttl='', priority='', notes='')
-    create.add_argument('-id', help='Porkbun unique record ID')
+    create.set_defaults(command='create',
+                        id='',
+                        name='',
+                        type='',
+                        content='',
+                        ttl='',
+                        priority='',
+                        notes='')
     create.add_argument('-name', help='DNS record name', type=str)
-    create.add_argument('-type', help='DNS record type', type=str, choices=SUPPORTED_DNS_RECORD_TYPES)
+    create.add_argument('-type', help='DNS record type',
+                        type=str, choices=SUPPORTED_DNS_RECORD_TYPES)
     create.add_argument('-content', help='DNS record content', type=str)
     create.add_argument('-ttl', help='DNS record ttl', type=str)
     create.add_argument('-priority', help='DNS record priority', type=str)
+    create.add_argument('-notes', help='DNS record notes', type=str)
 
     edit = dns_subparser.add_parser('edit', help='Edit a DNS record')
-    edit.set_defaults(command='edit', id='', name='', type='', content='', ttl='', priority='', notes='')
+    edit.set_defaults(command='edit',
+                      id='',
+                      name='',
+                      type='',
+                      content='',
+                      ttl='',
+                      priority='',
+                      notes='')
     edit.add_argument('-id', help='Porkbun unique record ID')
     edit.add_argument('-name', help='DNS record name', type=str)
-    edit.add_argument('-type', help='DNS record type', type=str, choices=SUPPORTED_DNS_RECORD_TYPES)
+    edit.add_argument('-type', help='DNS record type',
+                      type=str, choices=SUPPORTED_DNS_RECORD_TYPES)
     edit.add_argument('-content', help='DNS record content', type=str)
     edit.add_argument('-ttl', help='DNS record ttl', type=str)
     edit.add_argument('-priority', help='DNS record priority', type=str)
+    edit.add_argument('-notes', help='DNS record notes', type=str)
 
     delete = dns_subparser.add_parser('delete', help='Delete a DNS record')
-    delete.set_defaults(command='delete', id='', name='', type='', content='', ttl='', priority='', notes='')
+    delete.set_defaults(command='delete',
+                        id='',
+                        name='',
+                        type='',
+                        content='',
+                        ttl='',
+                        priority='',
+                        notes='')
     delete.add_argument('-id', help='Delete Record by record ID')
     delete.add_argument('-name', help='DNS record name', type=str)
-    delete.add_argument('-type', help='DNS record type', type=str, choices=SUPPORTED_DNS_RECORD_TYPES)
+    delete.add_argument('-type', help='DNS record type',
+                        type=str, choices=SUPPORTED_DNS_RECORD_TYPES)
+
+    bulk = dns_subparser.add_parser('bulk', help='Run bulk operations on DNS Service')
+    bulk.set_defaults(func=run_dns_bulk, mode='update')
+    bulk.add_argument('input', help='File containing JSON formatted DNS data')
+    bulk.add_argument('output', help='File containing results of bulk operation')
+    bulk.add_argument('-mode', help='Defaults to merge', choices={'flush', 'merge', 'add'})
 
     args = parser.parse_args()
-    args.func(args)
+    result = args.func(args)
+    print(result)
 
 if __name__ == "__main__":
     main()
