@@ -3,9 +3,14 @@
 #! /usr/local/bin/python
 import json
 import argparse
+from os import getenv
+from colorama import init, Fore, Back, Style
 
 import pyrkbun
 from pyrkbun.const import ApiError, ApiFailure
+
+# init colorama
+init(autoreset=True)
 
 SUPPORTED_DNS_RECORD_TYPES = {'A',
                               'AAAA',
@@ -17,6 +22,23 @@ SUPPORTED_DNS_RECORD_TYPES = {'A',
                               'SRV',
                               'TLSA',
                               'CAA'}
+
+def check_api_creds() -> bool:
+    """CHeck API Creds have been set"""
+    check_api_key: str = getenv('PYRK_API_KEY')
+    check_api_secret: str = getenv('PYRK_API_SECRET_KEY')
+
+    if not check_api_key:
+        print(f'{Fore.RED}API Key has not been set. Set enironment varaibale' +
+            f'{Fore.RED} "export PYRK_API_KEY=<your_api_key>"')
+        return False
+
+    if not check_api_secret:
+        print(f'{Fore.RED}API Secret Key has not been set. Set enironment varaibale' +
+            f'{Fore.RED} "export PYRK_API_SECRET_KEY=<your_api_secret_key>"')
+        return False
+
+    return True
 
 def run_ping(args: argparse.Namespace) -> str:
     """Run Ping"""
@@ -33,7 +55,7 @@ def run_ssl(args: argparse.Namespace) -> str:
     result: dict = pyrkbun.ssl.get(args.domain)
     return json.dumps(result)
 
-def run_dns(args: argparse.Namespace) -> str:
+def run_dns(args: argparse.Namespace) -> str: # pylint: disable = too-many-branches
     """Run DNS"""
     try:
         command: str = args.command
@@ -82,7 +104,7 @@ def run_dns(args: argparse.Namespace) -> str:
             elif name and record_type:
                 result = pyrkbun.dns.edit_record(domain, record, record_type, name)
             else:
-                return 'Please set value for either id OR name and type'
+                return f'{Fore.RED}Please set value for either "-id" OR "-name" and "-type"'
 
         elif command == 'delete':
             if record_id:
@@ -90,14 +112,14 @@ def run_dns(args: argparse.Namespace) -> str:
             elif name and record_type:
                 result = pyrkbun.dns.delete_record(domain, record_type, name)
             else:
-                return 'Please set value for either id OR name and type'
+                return f'{Fore.RED}Please set value for either "-id" OR "-name" and "-type"'
 
     except (ApiError, ApiFailure) as error:
-        return f'API Error -> {error.message}'
+        return f'{Back.RED}{Fore.YELLOW}API Error -> {error.message}'
 
     return json.dumps(result)
 
-def run_dns_bulk(args: argparse.Namespace): # pylint: disable = too-many-locals
+def run_dns_bulk(args: argparse.Namespace) -> None: # pylint: disable = [too-many-locals, too-many-branches, too-many-statements]
     """Run DNS Bulk
     flush: Delete ALL existing records and load records from provided file
     merge: Update existing records and add new records if they do not yet exist.
@@ -114,6 +136,7 @@ def run_dns_bulk(args: argparse.Namespace): # pylint: disable = too-many-locals
     deleted: dict = {'SUCCESS': [], 'FAILURE': []}
     not_found: list = []
 
+    # Create, edit and delete fuctions to be called once user options are evaluated
     def create_records(records: list):
         for record in records:
             record.pop('domain', None)
@@ -122,8 +145,10 @@ def run_dns_bulk(args: argparse.Namespace): # pylint: disable = too-many-locals
                 result = pyrkbun.dns.create_record(domain, record)
             except (ApiError, ApiFailure) as error:
                 created['FAILURE'].append({'error': error.message, 'record': record})
+                print(f'{Back.RED}{Fore.YELLOW}FAILED to CREATE record:{record}')
                 continue
             record.update({'id': str(result['id'])})
+            print(f'{Fore.GREEN}CREATED record:{record}')
             created['SUCCESS'].append({'result': result, 'record': record})
 
     def delete_records(records: list):
@@ -132,19 +157,26 @@ def run_dns_bulk(args: argparse.Namespace): # pylint: disable = too-many-locals
                 result = pyrkbun.dns.delete_record(domain, record_id=record['id'])
             except (ApiError, ApiFailure) as error:
                 deleted['FAILURE'].append({'result': error.message, 'record': record})
+                print(f'{Back.RED}{Fore.YELLOW}FAILED to DELETE record:{record}')
                 continue
+            print(f'{Fore.GREEN}DELETED record:{record}')
             deleted['SUCCESS'].append({'result': result, 'record': record})
 
     def edit_records(records: list):
         for record in records:
             try:
-                result = pyrkbun.dns.edit_record(domain, record, record_id=record['id'])
+                record.pop('domain', None)
+                record_id = record.pop('id', None)
+                result = pyrkbun.dns.edit_record(domain, record, record_id=record_id)
+                record.update({'id': record_id})
             except (ApiError, ApiFailure) as error:
                 edited['FAILURE'].append({'result': error.message, 'record': record})
+                print(f'{Back.RED}{Fore.YELLOW}FAILED to EDIT record:{record}')
                 continue
+            print(f'{Fore.GREEN}EDITED record:{record}{Style.RESET_ALL}')
             edited['SUCCESS'].append({'result': result, 'record': record})
 
-
+    print(f'{Fore.BLUE}{Style.DIM}Loading updated records from file')
     with open(input_file, 'r', encoding='utf8') as file:
         user_provided_records = json.load(file)
 
@@ -157,9 +189,8 @@ def run_dns_bulk(args: argparse.Namespace): # pylint: disable = too-many-locals
                                       priority='',
                                       notes='')
 
+    print(f'{Fore.BLUE}{Style.DIM}Collecting existing records')
     existing_records: dict = json.loads(run_dns(run_dns_args))
-    print(existing_records)
-
 
     if mode == 'flush':
         delete_records(existing_records)
@@ -169,6 +200,9 @@ def run_dns_bulk(args: argparse.Namespace): # pylint: disable = too-many-locals
         create_records(user_provided_records)
 
     if mode == 'merge': # pylint: disable = too-many-nested-blocks
+        # This is a somewhat complex collection of loop and if's
+        # The goal is to make the cli tolerant to variations in user input
+        # that could be expected due to outputs from other commands
         to_edit = []
         to_create = []
         for user_record in user_provided_records:
@@ -182,33 +216,55 @@ def run_dns_bulk(args: argparse.Namespace): # pylint: disable = too-many-locals
                         # If the Id values match between an existing and
                         # and user provided record then we need to edit it
                         if exist_record['id'] == user_record['id']:
-                            to_edit.append(user_record)
+                            # Make sure the records are different or else
+                            # the API will return an error that it could
+                            # not edit the record
+                            if exist_record != user_record:
+                                print(Fore.BLUE + Style.DIM
+                                      + f'Adding record to EDIT list:{user_record}')
+                                to_edit.append(user_record)
+
                 else:
+                    print(Fore.BLUE + Style.DIM
+                          + f'Adding record with EMPTY "id" field to CREATE list:{user_record}')
                     to_create.append(user_record)
             else:
+                print(Fore.BLUE + Style.DIM
+                      + f'Adding record with NO "id" field to CREATE list:{user_record}')
                 to_create.append(user_record)
         # If after the above comparison if the record does not appear in
         # to_create or to_edit, then the ID must have been provided and
         # it must be incorrect
         for user_record in user_provided_records:
-            if user_record not in to_create and user_record not in to_create:
+            if user_record not in to_create and user_record not in to_edit:
+                print(f'{Fore.BLUE}{Style.DIM}Adding record to IGNORE list:{user_record}')
                 not_found.append(user_record)
         # create and edit records as required
         create_records(to_create)
         edit_records(to_edit)
 
-    result = {'CREATED': created, 'EDITED': edited, 'DELETED': deleted, 'NOT_FOUND': not_found}
+    # Format results to be written to file
+    result = {'CREATED': created, 'EDITED': edited, 'DELETED': deleted, 'IGNORED': not_found}
 
-    with open(output_file, 'a+', encoding='utf8') as file:
+    with open(output_file, 'w', encoding='utf8') as file:
         json.dump(result, file)
+    print(f'{Fore.GREEN}{Style.BRIGHT}Detailed results written to {output_file}')
 
-def main():
+def main() -> str: # pylint: disable = too-many-statements
     """"Operate pyrkbun from the command line"""
+
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description='CLI interface to the pyrkbun python library')
+        description='''CLI interface to the pyrkbun python library.
+        
+Set environment variables for API Key and API Secret Key to authenticate commands.
 
-    parser.add_argument('-v', action='count', default=0, help='Set output verbosity')
+For API Key set:
+'export PYRK_API_KEY=<your_api_key>'
+
+For API Secret Key set:
+'export PYRK_API_SECRET_KEY=<your_api_secret_key>'
+''')
 
     pyrkbun_subparser = parser.add_subparsers(help='Pyrkbun Functions')
 
@@ -260,7 +316,10 @@ def main():
     create.add_argument('-priority', help='DNS record priority', type=str)
     create.add_argument('-notes', help='DNS record notes', type=str)
 
-    edit = dns_subparser.add_parser('edit', help='Edit a DNS record')
+    edit = dns_subparser.add_parser('edit', help='Edit a DNS record: '
+                                    + 'You must provide either -id OR -name and -type to identify '
+                                    + 'the target record. -id is less ambiguous and is prefered '
+                                    + 'as multiple records with the same name and type may exist')
     edit.set_defaults(command='edit',
                       id='',
                       name='',
@@ -278,7 +337,10 @@ def main():
     edit.add_argument('-priority', help='DNS record priority', type=str)
     edit.add_argument('-notes', help='DNS record notes', type=str)
 
-    delete = dns_subparser.add_parser('delete', help='Delete a DNS record')
+    delete = dns_subparser.add_parser('delete', help='Delete a DNS record '
+                                    + 'You must provide either -id OR -name and -type to identify '
+                                    + 'the target record. -id is less ambiguous and is prefered '
+                                    + 'as multiple records with the same name and type may exist')
     delete.set_defaults(command='delete',
                         id='',
                         name='',
@@ -293,14 +355,25 @@ def main():
                         type=str, choices=SUPPORTED_DNS_RECORD_TYPES)
 
     bulk = dns_subparser.add_parser('bulk', help='Run bulk operations on DNS Service')
-    bulk.set_defaults(func=run_dns_bulk, mode='update')
-    bulk.add_argument('input', help='File containing JSON formatted DNS data')
-    bulk.add_argument('output', help='File containing results of bulk operation')
-    bulk.add_argument('-mode', help='Defaults to merge', choices={'flush', 'merge', 'add'})
+    bulk.set_defaults(func=run_dns_bulk, mode='merge')
+    bulk.add_argument('input', help='File containing JSON formatted DNS records')
+    bulk.add_argument('output', help='File to write results of bulk operation')
+    bulk.add_argument('-mode', choices={'flush', 'merge', 'add'},
+                      help='Defaults to merge. '
+                    + '"add": Add all records in the provided file. '
+                    + '"flush": Delete ALL existing records and load records from provided file. '
+                    + '"merge": Update existing records and add new records if they do not yet '
+                    + 'exist. Records not specified in the file will remain unchanged.  '
+                    + 'Existing records must include the record ID.')
 
     args = parser.parse_args()
+
+    if not check_api_creds():
+        return
+
     result = args.func(args)
-    print(result)
+    if result:
+        print(result)
 
 if __name__ == "__main__":
     main()

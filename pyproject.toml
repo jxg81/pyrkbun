@@ -18,10 +18,9 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Natural Language :: English",
 ]
+
 keywords = ["API", "Porkbun", "DNS", "Registrar"]
-dependencies = [
-    "httpx[http2] >= 0.23.0",
-]
+dependencies = ["httpx[http2]", "argparse", "colorama"]
 requires-python = ">=3.9"
 
 [project.optional-dependencies]
