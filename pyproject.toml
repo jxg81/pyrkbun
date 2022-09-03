@@ -20,6 +20,7 @@ classifiers = [
 ]
 
 keywords = ["API", "Porkbun", "DNS", "Registrar"]
+
 dependencies = ["httpx[http2]", "colorama"]
 requires-python = ">=3.9"
 
