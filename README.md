@@ -294,6 +294,8 @@ Edit by name and type
 {"status": "SUCCESS"}
 ```
 Utilise help for details on all available options `pyrkbun dns example.com create -h`
+
+NOTE: If you attempt to update a record with no changes the API will return an error
 ### delete record
 Delete a record - Operation status will be returned
 
@@ -311,7 +313,46 @@ Edit by name and type
 {"status": "SUCCESS"}
 ```
 ### bulk operations
+Perfrom bulk operations on domain records by provding a json file containg record data. The command requires an input json file, output file (to write operation results) and mode.
 
+The following modes are supported:
+
+**add**: Add all records in the provided file.  
+**flush**: Delete ALL existing records and load records from provided file.  
+**merge (default)**: Update existing records and add new records if they do not yet exist. Records not specified in the file will remain unchanged and no records will be deleted. Existing records to be updated MUST include the record ID.
+
+Example usage:
+```
+% pyrkbun dns example.com bulk ./records.json ./result.json -mode merge
+```
+
+Example input file:
+```json
+[
+// Existing record to be updated - note inclusion of ID
+// Record id's are only required when using the 'merge' mode and only for existing records to be updated with new data
+    {
+        "content": "198.51.100.46",
+        "name": "www",
+        "ttl": "600",
+        "prio": "0",
+        "notes": "Company Website",
+        "type": "A",
+        "id": "256365177"
+    },
+// New record to be created - id field is not required
+// When using the 'flush' or 'add' modes record id's are never required
+    {
+        "content": "mail.example.com",
+        "name": "",
+        "ttl": "600",
+        "prio": "10",
+        "notes": "Primary MX Record",
+        "type": "MX",
+    }
+]
+```
+NOTE: If you attempt to update a record with no changes the API will return an error
 ## pyrkbun cli ping
 Porkbun provides a simple API endpoint for polling the API and returning your current IP address.
 
