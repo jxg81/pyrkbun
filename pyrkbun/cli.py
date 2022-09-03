@@ -6,8 +6,11 @@ import argparse
 from os import getenv
 from colorama import init, Fore, Back, Style
 
-import pyrkbun
-from pyrkbun.const import ApiError, ApiFailure
+from . import ssl
+from . import pricing
+from .dns import Dns as dns
+from .util import api_ping
+from .const import ApiError, ApiFailure
 
 # init colorama
 init(autoreset=True)
@@ -42,17 +45,17 @@ def check_api_creds() -> bool:
 
 def run_ping(args: argparse.Namespace) -> str:
     """Run Ping"""
-    result: dict = pyrkbun.ping(args.v4)
+    result: dict = api_ping(args.v4)
     return json.dumps(result)
 
 def run_pricing(args: argparse.Namespace) -> str: # pylint: disable = unused-argument
     """Run Picing"""
-    result: dict = pyrkbun.pricing.get()
+    result: dict = pricing.get()
     return json.dumps(result)
 
 def run_ssl(args: argparse.Namespace) -> str:
     """Run SSL"""
-    result: dict = pyrkbun.ssl.get(args.domain)
+    result: dict = ssl.get(args.domain)
     return json.dumps(result)
 
 def run_dns(args: argparse.Namespace) -> str: # pylint: disable = too-many-branches
@@ -81,11 +84,11 @@ def run_dns(args: argparse.Namespace) -> str: # pylint: disable = too-many-branc
     try:
         if command == 'get':
             if record_id:
-                records = pyrkbun.dns.get_records(domain, record_id=record_id)
+                records = dns.get_records(domain, record_id=record_id)
             elif name and record_type:
-                records = pyrkbun.dns.get_records(domain, record_type, name)
+                records = dns.get_records(domain, record_type, name)
             else:
-                records = pyrkbun.dns.get_records(domain)
+                records = dns.get_records(domain)
 
             result = []
             for record in records:
@@ -96,21 +99,21 @@ def run_dns(args: argparse.Namespace) -> str: # pylint: disable = too-many-branc
                 result.append(modified_record)
 
         elif command == 'create':
-            result = pyrkbun.dns.create_record(domain, record)
+            result = dns.create_record(domain, record)
 
         elif command == 'edit':
             if record_id:
-                result = pyrkbun.dns.edit_record(domain, record, record_id=record_id)
+                result = dns.edit_record(domain, record, record_id=record_id)
             elif name and record_type:
-                result = pyrkbun.dns.edit_record(domain, record, record_type, name)
+                result = dns.edit_record(domain, record, record_type, name)
             else:
                 return f'{Fore.RED}Please set value for either "-id" OR "-name" and "-type"'
 
         elif command == 'delete':
             if record_id:
-                result = pyrkbun.dns.delete_record(domain, record_id=record_id)
+                result = dns.delete_record(domain, record_id=record_id)
             elif name and record_type:
-                result = pyrkbun.dns.delete_record(domain, record_type, name)
+                result = dns.delete_record(domain, record_type, name)
             else:
                 return f'{Fore.RED}Please set value for either "-id" OR "-name" and "-type"'
 
@@ -142,7 +145,7 @@ def run_dns_bulk(args: argparse.Namespace) -> None: # pylint: disable = [too-man
             record.pop('domain', None)
             record.pop('id', None)
             try:
-                result = pyrkbun.dns.create_record(domain, record)
+                result = dns.create_record(domain, record)
             except (ApiError, ApiFailure) as error:
                 created['FAILURE'].append({'error': error.message, 'record': record})
                 print(f'{Back.RED}{Fore.YELLOW}FAILED to CREATE record:{record}')
@@ -154,7 +157,7 @@ def run_dns_bulk(args: argparse.Namespace) -> None: # pylint: disable = [too-man
     def delete_records(records: list):
         for record in records:
             try:
-                result = pyrkbun.dns.delete_record(domain, record_id=record['id'])
+                result = dns.delete_record(domain, record_id=record['id'])
             except (ApiError, ApiFailure) as error:
                 deleted['FAILURE'].append({'result': error.message, 'record': record})
                 print(f'{Back.RED}{Fore.YELLOW}FAILED to DELETE record:{record}')
@@ -167,7 +170,7 @@ def run_dns_bulk(args: argparse.Namespace) -> None: # pylint: disable = [too-man
             try:
                 record.pop('domain', None)
                 record_id = record.pop('id', None)
-                result = pyrkbun.dns.edit_record(domain, record, record_id=record_id)
+                result = dns.edit_record(domain, record, record_id=record_id)
                 record.update({'id': record_id})
             except (ApiError, ApiFailure) as error:
                 edited['FAILURE'].append({'result': error.message, 'record': record})
@@ -268,22 +271,22 @@ For API Secret Key set:
 
     pyrkbun_subparser = parser.add_subparsers(help='Pyrkbun Functions')
 
-    ping = pyrkbun_subparser.add_parser('ping', help='Poll API and return IP address')
-    ping.set_defaults(func=run_ping)
-    ping.add_argument('-v4', action='store_true', help='Force IPv4 Only')
+    ping_parser = pyrkbun_subparser.add_parser('ping', help='Poll API and return IP address')
+    ping_parser.set_defaults(func=run_ping)
+    ping_parser.add_argument('-v4', action='store_true', help='Force IPv4 Only')
 
-    pricing = pyrkbun_subparser.add_parser('pricing', help='Retrieve pricing information')
-    pricing.set_defaults(func=run_pricing)
+    pricing_parser = pyrkbun_subparser.add_parser('pricing', help='Retrieve pricing information')
+    pricing_parser.set_defaults(func=run_pricing)
 
-    ssl = pyrkbun_subparser.add_parser('ssl', help='Retrieve SSL bundle if available')
-    ssl.set_defaults(func=run_ssl)
-    ssl.add_argument('domain', help='Target domain name')
+    ssl_parser = pyrkbun_subparser.add_parser('ssl', help='Retrieve SSL bundle if available')
+    ssl_parser.set_defaults(func=run_ssl)
+    ssl_parser.add_argument('domain', help='Target domain name')
 
-    dns = pyrkbun_subparser.add_parser('dns', help='Operate DNS records')
-    dns.set_defaults(func=run_dns)
-    dns.add_argument('domain', help='Target domain')
+    dns_parser = pyrkbun_subparser.add_parser('dns', help='Operate DNS records')
+    dns_parser.set_defaults(func=run_dns)
+    dns_parser.add_argument('domain', help='Target domain')
 
-    dns_subparser = dns.add_subparsers()
+    dns_subparser = dns_parser.add_subparsers()
 
     get = dns_subparser.add_parser('get', help='Get a DNS record')
     get.set_defaults(command='get',
